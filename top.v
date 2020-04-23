@@ -6,7 +6,7 @@ module top(
     input  CLK100MHZ,
     input [7:0] SW,
     output AUD_PWM, 
-    output AUD_SD,
+    output AUD_SD,  
     output [2:0] LED
     );
     
@@ -22,16 +22,28 @@ module top(
     wire [10:0] douta;
     
     
-    // Instantiate block memory here
+    // DONE: Instantiate block memory here
     // Copy from the instantiation template and change signal names to the ones under "MemoryIO"
+    fullsine_mem_blk fullsine_bram (
+        .clka(CLK100MHZ),    // input wire clka
+        .ena(ena),      // input wire ena
+        .wea(wea),      // input wire [0 : 0] wea
+        .addra(addra),  // input wire [7 : 0] addra
+        .dina(dina),    // input wire [10 : 0] dina
+        .douta(douta)  // output wire [10 : 0] douta
+    );
     
     //PWM Out - this gets tied to the BRAM
     reg [10:0] PWM;
     
-    // Instantiate the PWM module
+    // DONE: Instantiate the PWM module
     // PWM should take in the clock, the data from memory
     // PWM should output to AUD_PWM (or whatever the constraints file uses for the audio out.
-
+    pwm_module pwm_mod(
+        .clk(CLK100MHZ),
+        .PWM_in(PWM),
+        .PWM_out(AUD_PWM)
+    );
     
     // Devide our clock down
     reg [12:0] clkdiv = 0;
