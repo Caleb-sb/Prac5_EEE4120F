@@ -29,6 +29,7 @@ reg [10:0] dina = 0;
 reg [5:0] val;
 wire [10:0] douta;
 
+
 always @* begin
     case({addra[7],addra[6]})
         2'b00: begin 
