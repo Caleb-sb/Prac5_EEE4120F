@@ -25,13 +25,13 @@ module top(
     
     // DONE: Instantiate block memory here
     // Copy from the instantiation template and change signal names to the ones under "MemoryIO"
-    fullsine_mem_blk fullsine_bram (
+    quartsine qsine_bram (
         .clka(CLK100MHZ),    // input wire clka
-        .ena(ena),      // input wire ena //enable port a
-        .wea(wea),      // input wire [0 : 0] wea // write enable a
+//        .ena(ena),      // input wire ena //enable port a
+//        .wea(wea),      // input wire [0 : 0] wea // write enable a
         .addra(addra),  // input wire [7 : 0] addra //address a
-        .dina(dina),    // input wire [10 : 0] dina //data in
-        .douta(douta)  // output wire [10 : 0] douta //data out
+//        .dina(dina),    // input wire [10 : 0] dina //data in
+        .douta2(douta)  // output wire [10 : 0] douta //data out
     );
     
     //PWM Out - this gets tied to the BRAM

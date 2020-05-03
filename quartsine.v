@@ -21,51 +21,51 @@
 module quartsine(
     input clka,
     input [7:0] addra,
-    output reg [10:0] douta2);
+    output reg [10:0] douta2=0);
 
-reg ena = 1;
-reg wea = 0;
-reg [10:0] dina = 0;
-reg [5:0] val;
-wire [10:0] douta;
+    reg ena = 1;
+    reg wea = 0;
+    reg [10:0] dina = 0;
+    reg [5:0] trans_addr =0;
+    wire [10:0] douta;
 
-
-always @* begin
-    case({addra[7],addra[6]})
-        2'b00: begin 
-            val = addra[5:0];
-            douta2 = douta;
-        end
-        2'b01: begin
-            val = ~addra[5:0];
-            douta2 = douta;
-        end
-        2'b10: begin
-            val = addra[5:0];
-            douta2 = 1024-(douta-1024);
-        end
-        2'b11: begin
-            val = ~addra[5:0];
-            douta2 = 1024-(douta-1024);
-        end
-    endcase
-end
-
-sinequarter_blk_mem_gen_0 dut(
-        clka,
-        ena,
-        wea,      
-        val,  
-        dina,    
-        douta
+    quartersine_mem_blk qsine(
+        .clka(clka),    // input wire clka
+        .ena(ena),      // input wire ena //enable port a
+        .wea(wea),      // input wire [0 : 0] wea // write enable a
+        .addra(trans_addr),  // input wire [7 : 0] addra //address a
+        .dina(dina),    // input wire [10 : 0] dina //data in
+        .douta(douta)  // output wire [10 : 0] douta //data out
         );
 
-//always @* begin
-//   casez({addra[7],addra[6]})
-//        2'b00: douta2 <= douta;
-//        2'b10: douta2 <= douta;
-//        2'b11: douta2 <= douta;
-//   endcase
-//end
+    always @(posedge clka) begin
+        case({addra[7:6]})
+            2'b00: begin
+                if (addra[5:0] == 0)
+                    douta2 <= 1024;
+                else if (addra[5:0] > 0)begin
+                    trans_addr <= (addra[5:0]-1'b1);
+                    douta2 <= douta;
+                end
+            end
+            2'b01: begin
+                trans_addr <= ~addra[5:0];
+                douta2 <= douta;
+                
+            end
+            2'b10: begin
+                if (addra[5:0] == 0)
+                    douta2 <= 1024;
+                else if (addra[5:0] > 0)begin
+                    trans_addr <= (addra[5:0]-1'b1);
+                    douta2 <= 2047-douta;
+                end
+            end
+            2'b11: begin
+                trans_addr <= ~addra[5:0];
+                douta2 <= 2047-douta;
+            end
+        endcase
+    end
 
 endmodule
