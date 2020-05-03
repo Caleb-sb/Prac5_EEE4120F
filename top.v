@@ -8,7 +8,7 @@ module top(
     input BTNL,
     output AUD_PWM, 
     output AUD_SD,  
-    output [2:0] LED
+    output [1:0] LED
     );
     
     // Toggle arpeggiator enabled/disabled
@@ -16,10 +16,10 @@ module top(
     Debounce change_state (CLK100MHZ, BTNL, arp_switch); // ensure your button choice is correct
     
     // Memory IO
-    reg ena = 1;
-    reg wea = 0;
+//    reg ena = 1;
+//    reg wea = 0;
     reg [7:0] addra=0;
-    reg [10:0] dina=0; //We're not putting data in, so we can leave this unassigned
+//    reg [10:0] dina=0; //We're not putting data in, so we can leave this unassigned
     wire [10:0] douta;
     
     
@@ -51,7 +51,7 @@ module top(
     
     // keep track of variables for implementation
     reg [26:0] note_switch = 0; //500ms timer
-    reg [2:0] note = 4; //which note in arp
+    reg [1:0] note = 0; //which note in arp
     reg [8:0] f_base = 0;  //base note of arp
     
     reg arp_mode = 0;   //outputting arp or base
@@ -71,7 +71,7 @@ always @(posedge CLK100MHZ) begin
     else if(arp_mode && arp_switch && !prev_arp_switch) begin
         arp_mode <= 0;
         prev_arp_switch <= 1;
-        note <= 4;
+        note <= 0;
     end
     if(!arp_switch) prev_arp_switch <= 0;
     
@@ -79,9 +79,8 @@ always @(posedge CLK100MHZ) begin
     if (arp_mode) begin
         note_switch <= note_switch + 1; // keep track of when to change notes
         if (note_switch == 50000000) begin
-            note <= note +1;
+            note <= note +1'b1;
             note_switch <= 0;
-            if (note >= 3) note <= 0;
         end
     end
     
@@ -89,19 +88,19 @@ always @(posedge CLK100MHZ) begin
     // FSM to switch between notes, otherwise just output the base note.
     case(note)
         0: begin // base note
-            if (clkdiv >= f_base*2) begin
+            if (clkdiv >= f_base*2) begin 
                 clkdiv[12:0] <= 0;
                 addra <= addra +1;
             end
         end
         1: begin // 1.25 faster
-            if (clkdiv >= f_base*5/4) begin
+            if (clkdiv >= f_base*8/5) begin
                 clkdiv[12:0] <= 0;
                     addra <= addra +1;
             end
         end
         2: begin //1.5 times faster
-            if (clkdiv >= f_base*3/2) begin
+            if (clkdiv >= f_base*4/3) begin
                 clkdiv[12:0] <= 0;
                 addra <= addra +1;
             end
@@ -123,7 +122,7 @@ end
 
 
 assign AUD_SD = 1'b1;  // Enable audio out
-assign LED[2:0] = note[2:0]; // Tie FRM state to LEDs so we can see and hear changes
+assign LED[1:0] = note[1:0]; // Tie FRM state to LEDs so we can see and hear changes
 
 
 endmodule
