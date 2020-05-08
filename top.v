@@ -1,112 +1,125 @@
 `timescale 1ns / 1ps
-
+//------------------------------------------------------------------------------
+// File name   :   top.v
+// Module Name :   top
+// Function    :   Implements FSM to output arpeggio or just base note
+// Coder       :   Caleb Bredekamp [BRDCAL003]
+// Comments    :   Adapted from template given by Keegan Crankshaw:
+//                 https://github.com/UCT-EE-OCW/EEE4120F-Pracs
+//------------------------------------------------------------------------------
 module top(
-    // These signal names are for the nexys A7. 
-    // Check your constraint file to get the right names
     input  CLK100MHZ,
     input [7:0] SW,
     input BTNL,
-    output AUD_PWM, 
-    output AUD_SD,  
+
+    output AUD_PWM,
+    output AUD_SD,
     output [1:0] LED
     );
-    
+
     // Toggle arpeggiator enabled/disabled
     wire arp_switch;
-    Debounce change_state (CLK100MHZ, BTNL, arp_switch); // ensure your button choice is correct
-    
-    // Memory IO
-//    reg ena = 1;
-//    reg wea = 0;
-    reg [7:0] addra=0;
-//    reg [10:0] dina=0; //We're not putting data in, so we can leave this unassigned
-    wire [10:0] douta;
-    
-    
-    // DONE: Instantiate block memory here
-    // Copy from the instantiation template and change signal names to the ones under "MemoryIO"
+    Debounce change_state (CLK100MHZ, BTNL, arp_switch);
+
+
+//----------------------------Module/BRAM Init----------------------------------
+// Uncomment the ena, wea, dina and fullsine module to use with fullsine BRAM
+
+
+    reg    [7:0]    addra = 0;
+    wire   [10:0]   douta;
+
     quartsine qsine_bram (
-        .clka(CLK100MHZ),    // input wire clka
-//        .ena(ena),      // input wire ena //enable port a
-//        .wea(wea),      // input wire [0 : 0] wea // write enable a
-        .addra(addra),  // input wire [7 : 0] addra //address a
-//        .dina(dina),    // input wire [10 : 0] dina //data in
-        .douta2(douta)  // output wire [10 : 0] douta //data out
+        .clka(CLK100MHZ),   // input wire clka
+        .addra(addra),      // input wire [7 : 0]   addra   - address a
+        .douta2(douta)      // output wire [10 : 0] douta   - data out
     );
-    
-    //PWM Out - this gets tied to the BRAM
+
+//    reg ena           =   1;
+//    reg wea           =   0;
+//    reg [10:0] dina   =   0; //We're not putting data in - leaving as 0
+//    fullsine_mem_blk fsine(
+//        .clka(CLK100MHZ),
+//        .ena(ena),          // input wire ena               - enable port a
+//        .wea(wea),          // input wire [0 : 0]   wea     - write enable a
+//        .addra(addra),      // input wire [7 : 0]   addra   - address a
+//        .dina(dina),        // input wire [10 : 0]  dina    - data in
+//        .douta(douta)       // output wire [10 : 0] douta   - data out
+//        );
+
+//-------------------------------PWM Output-------------------------------------
+    // This gets tied to the BRAM
     reg [10:0] PWM;
-    
-    // DONE: Instantiate the PWM module
-    // PWM should take in the clock, the data from memory
-    // PWM should output to AUD_PWM (or whatever the constraints file uses for the audio out.
+
     pwm_module pwm_mod(
         .clk(CLK100MHZ),
         .PWM_in(PWM),
         .PWM_out(AUD_PWM)
     );
-    
-    // Devide our clock down
-    reg [12:0] clkdiv = 0;
-    
-    // keep track of variables for implementation
-    reg [26:0] note_switch = 0; //500ms timer
-    reg [1:0] note = 0; //which note in arp
-    reg [8:0] f_base = 0;  //base note of arp
-    
-    reg arp_mode = 0;   //outputting arp or base
-    reg prev_arp_switch = 0;
-always @(posedge CLK100MHZ) begin   
-    
-    PWM <= douta; // tie memory output to the PWM input
-    clkdiv <= clkdiv+1'b1;
-    $display("PWM: %d", PWM);
-    f_base[8:0] = 746 + SW[7:0]; // get the "base" frequency to work from 
-    
+
+//----------------------Sequential and FSM Variables----------------------------
+    reg [12:0]  clkdiv      =   0;  // Used to set frequency in both modes
+    reg [26:0]  note_switch =   0;  // 500ms timer
+    reg [1:0]   note        =   0;  // which note in arp (in FSM)
+    reg [9:0]   f_base      =   0;  // base note (added an extra bit for 746)
+    reg arp_mode            =   0;  // Outputting arp or base note
+    reg prev_arp_switch     =   0;
+
+
+//----------------Sequential Arpeggio Operation and FSM Cases-------------------
+always @(posedge CLK100MHZ) begin
+
+    PWM     <= douta;               // tie memory output to the PWM input
+    clkdiv  <= clkdiv + 1'b1;
+
+    f_base[9:0] = 746 + SW[7:0];    // get the "base" frequency
+
+    // Switching from base_f mode to arp mode on rising edge
     if (!arp_mode && arp_switch && !prev_arp_switch) begin
-        arp_mode <= 1;
-        prev_arp_switch <= 1;
-        note <= 0;
+        arp_mode        <=  1;
+        prev_arp_switch <=  1;
+        note            <=  0;
     end
+    // Switching from Arp mode to base_f mode on rising edge
     else if(arp_mode && arp_switch && !prev_arp_switch) begin
-        arp_mode <= 0;
-        prev_arp_switch <= 1;
-        note <= 0;
+        arp_mode        <=  0;
+        prev_arp_switch <=  1;
+        note            <=  0;
     end
-    if(!arp_switch) prev_arp_switch <= 0;
-    
-    // DONE: Loop to change the output note IF we're in the arp state
+    if(!arp_switch) prev_arp_switch <= 0;   //Resetting to detect rising edge
+
+    // Change the output note IF we're in the arp state
     if (arp_mode) begin
         note_switch <= note_switch + 1; // keep track of when to change notes
         if (note_switch == 50000000) begin
-            note <= note +1'b1;
-            note_switch <= 0;
+            note        <=  note +1'b1;
+            note_switch <=  0;
         end
     end
-    
 
-    // FSM to switch between notes, otherwise just output the base note.
+
+//------FSM to switch between notes, otherwise just output the base note--------
     case(note)
         0: begin // base note
-            if (clkdiv >= f_base*2) begin 
+            if (clkdiv >= 2*f_base) begin //1492 (@SW=0)
                 clkdiv[12:0] <= 0;
                 addra <= addra +1;
             end
         end
         1: begin // 1.25 faster
-            if (clkdiv >= f_base*8/5) begin
+            if (clkdiv >= (f_base*127/80)) begin //1185.04 (@SW=0)
                 clkdiv[12:0] <= 0;
                     addra <= addra +1;
             end
         end
         2: begin //1.5 times faster
-            if (clkdiv >= f_base*4/3) begin
+            if (clkdiv >= (f_base*161/120)) begin //996.49 (@SW=0)
                 clkdiv[12:0] <= 0;
                 addra <= addra +1;
             end
         end
         3: begin //2 times faster
-            if (clkdiv >= f_base) begin
+            if (clkdiv >= f_base) begin //746.9 (@SW=0)
                 clkdiv[12:0] <= 0;
                 addra <= addra +1;
             end
@@ -120,9 +133,9 @@ always @(posedge CLK100MHZ) begin
     endcase
 end
 
-
+//----------------------------Specifying Ouputs---------------------------------
 assign AUD_SD = 1'b1;  // Enable audio out
-assign LED[1:0] = note[1:0]; // Tie FRM state to LEDs so we can see and hear changes
+assign LED[1:0] = note[1:0]; // Tie FRM state to LEDs
 
 
 endmodule
